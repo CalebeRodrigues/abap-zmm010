@@ -227,25 +227,24 @@ ENDCLASS.
 *
 
 *-----------------------------------------------------------------------
-* Utilitários M2M em massa (versão compatível)
+* Utilitários M2M em massa (ajuste de tipos)
 * Calebe Rodrigues - TI SR Embalagens (19/08/2025
 *-----------------------------------------------------------------------
-
-FORM add_text_msg USING iv_type     TYPE symsgty
-                        iv_message  TYPE string.               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+FORM add_text_msg USING iv_type    TYPE symsgty
+                        iv_message     TYPE ty_msg120.            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   DATA ls_ret TYPE bapiret2.
   CLEAR ls_ret.
   ls_ret-type    = iv_type.
   ls_ret-id      = gc_msgid.
   ls_ret-message = iv_message.
   APPEND ls_ret TO gt_ret.
-ENDFORM.                                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+ENDFORM.
 
 
 FORM validate_line USING    is_row TYPE ty_transf
                    CHANGING cv_ok  TYPE abap_bool.           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-  DATA: lv_dummy TYPE char1,
-        lv_msg   TYPE string.
+DATA: lv_dummy TYPE char1,
+      lv_msg   TYPE ty_msg120.       " era STRING  -> compatível com add_text_msg
 
   cv_ok = abap_true.
 
@@ -414,9 +413,10 @@ ENDFORM.
 *-----------------------------------------------------------------------
 FORM validate_line_silent USING    is_row TYPE ty_transf
                           CHANGING cv_ok  TYPE abap_bool
-                                   cv_msg TYPE c LENGTH 120.
+                                   cv_msg TYPE ty_msg120.    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
   DATA: lv_dummy TYPE char1.
-  DATA: lv_msg   TYPE c LENGTH 120.
+  DATA: lv_msg   TYPE ty_msg120.                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   cv_ok = abap_true.
   CLEAR cv_msg.
 
@@ -466,4 +466,4 @@ FORM validate_line_silent USING    is_row TYPE ty_transf
 
   " OK
   cv_msg = 'Pronto para postar.'.
-ENDFORM.      
+ENDFORM.

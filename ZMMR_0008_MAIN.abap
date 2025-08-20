@@ -729,7 +729,7 @@ FORM post_mass .                                                          " Cale
         ls_item  TYPE bapi2017_gm_item_create,                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         lt_ret   TYPE TABLE OF bapiret2,                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         ls_mdoc  TYPE bapi2017_gm_head_ret,                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-        lv_msg   TYPE string.                                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        lv_msg   TYPE ty_msg120.         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   CLEAR: ls_head, ls_code.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   ls_head-pstng_date = sy-datum.                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
@@ -801,3 +801,207 @@ ENDFORM.                                                                   " Cal
 * Fim - Carga e Postagem M2M
 * Calebe Rodrigues - TI SR Embalagens (19/08/2025
 *-----------------------------------------------------------------------
+
+*-----------------------------------------------------------------------
+* Upload de CSV para preencher gt_transf (valida e pinta status)
+* Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+FORM upload_csv_transf .
+  DATA: lt_filetab TYPE filetable,                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        ls_file    TYPE file_table,                                      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        lv_rc      TYPE i,
+        lv_file    TYPE string,
+        lt_soli    TYPE STANDARD TABLE OF soli,
+        ls_soli    TYPE soli,
+        lv_line    TYPE string,
+        lv_up      TYPE string,
+        lv_delim   TYPE c LENGTH 1,
+        lv_msg     TYPE ty_msg120.            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+  CALL METHOD cl_gui_frontend_services=>file_open_dialog
+    EXPORTING default_extension = 'CSV'
+              file_filter       = 'CSV (*.csv)|*.csv'
+    CHANGING  file_table        = lt_filetab
+              rc                = lv_rc.
+  IF sy-subrc <> 0 OR lv_rc <= 0.
+    PERFORM add_text_msg USING gc_message_type-i 'Seleção de arquivo cancelada.'. " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    RETURN.
+  ENDIF.
+
+  READ TABLE lt_filetab INDEX 1 INTO ls_file.
+  IF sy-subrc = 0. lv_file = ls_file-filename. ENDIF.
+  IF lv_file IS INITIAL.
+    PERFORM add_text_msg USING gc_message_type-e 'Arquivo não informado.'.
+    RETURN.
+  ENDIF.
+
+  CALL METHOD cl_gui_frontend_services=>gui_upload
+    EXPORTING filename = lv_file
+              filetype = 'ASC'
+    CHANGING  data_tab = lt_soli.
+  IF sy-subrc <> 0.
+    PERFORM add_text_msg USING gc_message_type-e 'Falha no upload do CSV.'.
+    RETURN.
+  ENDIF.
+
+  " Descobrir delimitador na 1ª linha não vazia
+  LOOP AT lt_soli INTO ls_soli.
+    lv_line = ls_soli-line. CONDENSE lv_line.
+    IF lv_line IS NOT INITIAL.
+      IF lv_line CS ';'. lv_delim = ';'.
+      ELSEIF lv_line CS ','. lv_delim = ','.
+      ELSE. lv_delim = ';'.
+      ENDIF.
+      EXIT.
+    ENDIF.
+  ENDLOOP.
+  IF lv_delim IS INITIAL. lv_delim = ';'. ENDIF.
+
+  REFRESH gt_transf.
+
+  LOOP AT lt_soli INTO ls_soli.
+    lv_line = ls_soli-line.
+    IF lv_line IS INITIAL. CONTINUE. ENDIF.
+
+    " Ignora cabeçalho
+    lv_up = lv_line. TRANSLATE lv_up TO UPPER CASE.
+    IF lv_up CS 'MAT_ORIG' AND lv_up CS 'MAT_DEST'. CONTINUE. ENDIF.
+
+    REPLACE ALL OCCURRENCES OF '"' IN lv_line WITH ''.
+
+    DATA: lv1 TYPE string, lv2 TYPE string, lv3 TYPE string, lv4 TYPE string, lv5 TYPE string,
+          lv6 TYPE string, lv7 TYPE string, lv8 TYPE string, lv9 TYPE string, lv10 TYPE string.
+
+    SPLIT lv_line AT lv_delim INTO lv1 lv2 lv3 lv4 lv5 lv6 lv7 lv8 lv9 lv10.
+
+    CLEAR gs_transf.
+    gs_transf-mat_orig = lv1.
+    gs_transf-mat_dest = lv2.
+    gs_transf-werks    = lv3.
+    gs_transf-lgort    = lv4.
+    gs_transf-charg    = lv5.
+
+    " Normaliza quantidade (milhar/decimal)
+    DATA lv6_num TYPE string.
+    lv6_num = lv6.
+    IF lv_delim = ';'.                         " CSV BR comum
+      REPLACE ALL OCCURRENCES OF '.' IN lv6_num WITH ''.
+      REPLACE ALL OCCURRENCES OF ',' IN lv6_num WITH '.'.  " <- sem ponto e vírgula
+    ELSE.
+      REPLACE ALL OCCURRENCES OF ',' IN lv6_num WITH ''.
+    ENDIF.
+    CONDENSE lv6_num NO-GAPS.
+    IF lv6_num IS NOT INITIAL. gs_transf-menge = lv6_num. ENDIF.
+
+    gs_transf-meins = lv7.
+    gs_transf-sobkz = lv8.
+    gs_transf-vbeln = lv9.
+    gs_transf-posnr = lv10.
+
+    " Validação silenciosa p/ status no grid
+    DATA: lv_ok TYPE abap_bool,
+          lv_msg_row TYPE ty_msg120.
+    PERFORM validate_line_silent USING gs_transf CHANGING lv_ok lv_msg_row.
+
+    IF lv_ok = abap_true.
+      gs_transf-status_icon = icon_led_green.
+      gs_transf-status_type = 'S'.
+      IF lv_msg_row IS INITIAL. lv_msg_row = 'Pronto para postar.'. ENDIF.
+    ELSE.
+      gs_transf-status_icon = icon_led_red.
+      gs_transf-status_type = 'E'.
+      IF lv_msg_row IS INITIAL. lv_msg_row = 'Erro na validação.'. ENDIF.
+    ENDIF.
+    gs_transf-status_msg = lv_msg_row.
+
+    APPEND gs_transf TO gt_transf.
+  ENDLOOP.
+
+  IF g_grid IS BOUND.
+    CALL METHOD g_grid->refresh_table_display.
+  ENDIF.
+
+  CONCATENATE 'Arquivo CSV carregado:' lv_file INTO lv_msg SEPARATED BY space.
+  PERFORM add_text_msg USING gc_message_type-s lv_msg.                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+ENDFORM.
+
+*-----------------------------------------------------------------------
+* Revalida as linhas já digitadas no ALV (sem postar)
+* Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+FORM validate_buffer_transf .
+  DATA: lv_ok  TYPE abap_bool,
+        lv_msg TYPE ty_msg120.                                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+  LOOP AT gt_transf INTO gs_transf.
+    CLEAR lv_msg.
+    PERFORM validate_line_silent USING gs_transf CHANGING lv_ok lv_msg.
+    IF lv_ok = abap_true.
+      gs_transf-status_icon = icon_led_green.
+      gs_transf-status_type = 'S'.
+      IF lv_msg IS INITIAL. lv_msg = 'Pronto para postar.'. ENDIF.
+    ELSE.
+      gs_transf-status_icon = icon_led_red.
+      gs_transf-status_type = 'E'.
+      IF lv_msg IS INITIAL. lv_msg = 'Erro na validação.'. ENDIF.
+    ENDIF.
+    gs_transf-status_msg = lv_msg.
+    MODIFY gt_transf FROM gs_transf.
+  ENDLOOP.
+
+  IF g_grid IS BOUND.
+    CALL METHOD g_grid->refresh_table_display.
+  ENDIF.
+
+  PERFORM add_text_msg USING gc_message_type-i 'Validação concluída.'.
+ENDFORM.
+
+*-----------------------------------------------------------------------
+* Download do template CSV (assinatura antiga do FILE_SAVE_DIALOG)
+* Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+FORM download_csv_template .
+
+  DATA: lt_soli     TYPE STANDARD TABLE OF soli,         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        ls_soli     TYPE soli,                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        lv_full     TYPE string,                         " caminho completo escolhido
+        lv_filename TYPE string,                         " nome do arquivo
+        lv_path     TYPE string.                         " pasta escolhida
+
+  lv_full = 'template_m2m.csv'.                          " sugestão de nome
+
+  " Cabeçalho do template
+  CLEAR ls_soli.
+  ls_soli-line = 'MAT_ORIG;MAT_DEST;WERKS;LGORT;CHARG;MENGE;MEINS;SOBKZ;VBELN;POSNR'.
+  APPEND ls_soli TO lt_soli.
+
+  " >>> ESTE é o trecho do passo 2 (sem FILE_TABLE / RC) <<<
+  CALL METHOD cl_gui_frontend_services=>file_save_dialog
+    EXPORTING
+      default_extension = 'CSV'
+      default_file_name = lv_full
+      file_filter       = 'CSV (*.csv)|*.csv'
+    CHANGING
+      filename          = lv_filename
+      path              = lv_path
+      fullpath          = lv_full.
+
+  IF sy-subrc <> 0 OR lv_full IS INITIAL.
+    PERFORM add_text_msg USING gc_message_type-i 'Download cancelado.'.   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    RETURN.
+  ENDIF.
+
+  CALL METHOD cl_gui_frontend_services=>gui_download
+    EXPORTING
+      filename = lv_full
+      filetype = 'ASC'
+    CHANGING
+      data_tab = lt_soli.
+
+  IF sy-subrc = 0.
+    PERFORM add_text_msg USING gc_message_type-s 'Template CSV gerado com sucesso.'. " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+  ELSE.
+    PERFORM add_text_msg USING gc_message_type-e 'Falha ao gerar template CSV.'.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+  ENDIF.
+
+ENDFORM.

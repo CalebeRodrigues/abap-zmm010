@@ -72,6 +72,9 @@ TYPES: BEGIN OF ty_transf,                                              " Calebe
          status_type TYPE syst_msgty,        " 'S' / 'E' / 'W'          Calebe Rodrigues - TI SR Embalagens (19/08/2025
        END OF ty_transf.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
+" Tipo de mensagem 120
+TYPES ty_msg120 TYPE c LENGTH 120.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
 DATA: gt_transf TYPE STANDARD TABLE OF ty_transf WITH DEFAULT KEY,      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
       gs_transf TYPE ty_transf.                                         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
