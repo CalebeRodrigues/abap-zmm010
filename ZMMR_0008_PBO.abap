@@ -83,6 +83,19 @@ FORM alv_m2m_pbo .
         it_outtab        = gt_transf
         it_fieldcatalog  = g_fieldcat.
 
+*    -- Registra handlers do ALV (toolbar, user_command, hotspot)
+    IF g_grid IS BOUND.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      IF event_receiver IS INITIAL.                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        CREATE OBJECT event_receiver.                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ENDIF.                                                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      SET HANDLER event_receiver->handle_toolbar        FOR g_grid.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      SET HANDLER event_receiver->handle_user_command   FOR g_grid.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      SET HANDLER event_receiver->handle_hotspot_click  FOR g_grid.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      CALL METHOD g_grid->set_toolbar_interactive.                      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    ENDIF.                                                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
     CALL METHOD g_grid->set_ready_for_input
       EXPORTING i_ready_for_input = 1.                      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   ENDIF.

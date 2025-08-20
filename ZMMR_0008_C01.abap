@@ -58,7 +58,54 @@ CLASS lcl_event_receiver IMPLEMENTATION.
     ASSIGNING FIELD-SYMBOL(<fs_rows>)
     INDEX 1.
 
+    "---------------------------------------------------------------
+    " Comandos dos botões do M2M (Material -> Material)
+    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    "---------------------------------------------------------------
+    IF rb_ma2ma = abap_true.
+      CASE e_ucomm.
+        WHEN 'M2M_UP'.     PERFORM upload_csv_transf.          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        WHEN 'M2M_VAL'.    PERFORM validate_buffer_transf.     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        WHEN 'M2M_TPL'.    PERFORM download_csv_template.      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        WHEN 'M2M_POST'.   PERFORM post_mass.                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        WHEN OTHERS.
+      ENDCASE.
+      RETURN.  " evita cair na lógica dos outros modos            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    ENDIF.
+
     CASE e_ucomm.
+
+      "---------------------------------------------------------------
+      " Ações M2M a partir da toolbar do ALV
+      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      "---------------------------------------------------------------
+      WHEN 'UP_CSV'.                                                   " Upload CSV
+        PERFORM upload_csv_transf.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        IF g_grid IS BOUND.
+          CALL METHOD g_grid->refresh_table_display.
+        ENDIF.
+
+      WHEN 'VAL_M2M'.                                                  " Validar buffer
+        PERFORM validate_buffer_transf.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      WHEN 'POST_M2M'.                                                 " Postar M2M
+        PERFORM post_mass.                                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        IF g_grid IS BOUND.
+          CALL METHOD g_grid->refresh_table_display.
+        ENDIF.
+
+      WHEN 'UP_CSV'.                                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        PERFORM upload_csv_transf.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        RETURN.                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      WHEN 'VAL_BUF'.                                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        PERFORM validate_buffer_transf.                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        RETURN.                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      WHEN 'DW_TPL'.                                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        PERFORM download_csv_template.                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        RETURN.                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
       WHEN 'TR_SAL'.
         DATA(vl_erro) = abap_false.
 
@@ -158,64 +205,111 @@ CLASS lcl_event_receiver IMPLEMENTATION.
 
     DATA ls_toolbar TYPE stb_button.
 
-*   append a separator to normal toolbar
+    "---------------------------------------------------------------
+    " Toolbar dedicada ao modo M2M (Material -> Material)
+    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    "---------------------------------------------------------------
+    IF rb_ma2ma = abap_true.
+
+      " Limpa completamente os botões padrão do ALV
+      CLEAR e_object->mt_toolbar.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " (opcional) separador inicial
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-butn_type = 3.                                         " separador
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " Upload CSV
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-function  = 'M2M_UP'.                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-icon      = icon_import.                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-quickinfo = 'Upload CSV'.                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-text      = 'Upload CSV'.                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-disabled  = space.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " Validar (revalida as linhas do grid)
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-function  = 'M2M_VAL'.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-icon      = icon_check.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-quickinfo = 'Validar'.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-text      = 'Validar'.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-disabled  = space.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " Template (gera arquivo CSV modelo)
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-function  = 'M2M_TPL'.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-icon      = icon_export.                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-quickinfo = 'Template'.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-text      = 'Template'.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-disabled  = space.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " (opcional) outro separador
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-butn_type = 3.                                         " separador
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      " Postar (executa a BAPI em massa)
+      CLEAR ls_toolbar.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-function  = 'M2M_POST'.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-icon      = icon_okay.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-quickinfo = 'Postar'.                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-text      = 'Postar'.                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ls_toolbar-disabled  = space.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      APPEND ls_toolbar TO e_object->mt_toolbar.                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+      RETURN.  " não processa a toolbar padrão nos outros modos          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    ENDIF.
+
+    "---------------------------------------------------------------
+    " Fluxos antigos (Pedido<->Livre, etc.) – segue como já era
+    "---------------------------------------------------------------
     CLEAR ls_toolbar.
     MOVE 3 TO ls_toolbar-butn_type.
     APPEND ls_toolbar TO e_object->mt_toolbar.
 
-*   append an icon to show booking table
-*   Botão refresh
     IF rb_pe2lv IS INITIAL.
-      READ TABLE e_object->mt_toolbar
-      INTO ls_toolbar
-      WITH KEY function = 'ASS_OV'.
-
+      READ TABLE e_object->mt_toolbar INTO ls_toolbar WITH KEY function = 'ASS_OV'.
       IF sy-subrc IS NOT INITIAL.
         CLEAR ls_toolbar.
         MOVE 'ASS_OV'           TO ls_toolbar-function.
-        MOVE  icon_change_text  TO ls_toolbar-icon.          "table ICON
-        MOVE 'Associar OV'(111) TO ls_toolbar-quickinfo.
-        MOVE 'Associar OV'(112) TO ls_toolbar-text.
-        MOVE ' '                TO ls_toolbar-disabled.
+        MOVE icon_change_text   TO ls_toolbar-icon.
+        MOVE 'Associar OV'      TO ls_toolbar-quickinfo.
+        MOVE 'Associar OV'      TO ls_toolbar-text.
+        MOVE space              TO ls_toolbar-disabled.
         APPEND ls_toolbar       TO e_object->mt_toolbar.
       ENDIF.
     ENDIF.
 
-    READ TABLE e_object->mt_toolbar
-    INTO ls_toolbar
-    WITH KEY function = 'TR_SAL'.
-
+    READ TABLE e_object->mt_toolbar INTO ls_toolbar WITH KEY function = 'TR_SAL'.
     IF sy-subrc IS NOT INITIAL.
       CLEAR ls_toolbar.
-      MOVE 'TR_SAL'                     TO ls_toolbar-function.
-      MOVE  icon_fast_entry             TO ls_toolbar-icon.          "table ICON
-      MOVE 'Tranferencia de Saldo'(111) TO ls_toolbar-quickinfo.
-      MOVE 'Tranferencia de Saldo'(112) TO ls_toolbar-text.
-      MOVE ' '                          TO ls_toolbar-disabled.
+      MOVE 'TR_SAL'                TO ls_toolbar-function.
+      MOVE icon_fast_entry         TO ls_toolbar-icon.
+      MOVE 'Tranferencia de Saldo' TO ls_toolbar-quickinfo.
+      MOVE 'Tranferencia de Saldo' TO ls_toolbar-text.
+      MOVE space                   TO ls_toolbar-disabled.
       APPEND ls_toolbar TO e_object->mt_toolbar.
     ENDIF.
 
-    READ TABLE e_object->mt_toolbar
-    INTO ls_toolbar
-    WITH KEY function = 'ASS_DEP'.
-
+    READ TABLE e_object->mt_toolbar INTO ls_toolbar WITH KEY function = 'ASS_DEP'.
     IF sy-subrc IS NOT INITIAL.
       CLEAR ls_toolbar.
-      MOVE 'ASS_DEP'                    TO ls_toolbar-function.
-      MOVE  icon_fast_entry             TO ls_toolbar-icon.          "table ICON
-      MOVE 'Associar Dep.'(111)           TO ls_toolbar-quickinfo.
-      MOVE 'Associar Dep.'(112)           TO ls_toolbar-text.
-      MOVE ' '                          TO ls_toolbar-disabled.
+      MOVE 'ASS_DEP'            TO ls_toolbar-function.
+      MOVE icon_fast_entry      TO ls_toolbar-icon.
+      MOVE 'Associar Dep.'      TO ls_toolbar-quickinfo.
+      MOVE 'Associar Dep.'      TO ls_toolbar-text.
+      MOVE space                TO ls_toolbar-disabled.
       APPEND ls_toolbar TO e_object->mt_toolbar.
     ENDIF.
 
-*Inserido por LuísMagalhães - 08.08.2019 - CH. 8000023352 Alterações ZMM009 - Inicio
     IF NOT rb_dp2dp IS INITIAL.
       DELETE e_object->mt_toolbar WHERE function EQ 'ASS_OV'.
     ENDIF.
-*Inserido por LuísMagalhães - 08.08.2019 - CH. 8000023352 Alterações ZMM009 - Fim
 
-  ENDMETHOD.                    "handle_toolbar
+  ENDMETHOD.
 
   METHOD handle_hotspot_click.
 
@@ -467,3 +561,41 @@ FORM validate_line_silent USING    is_row TYPE ty_transf
   " OK
   cv_msg = 'Pronto para postar.'.
 ENDFORM.
+
+*-----------------------------------------------------------------------
+* Normaliza chaves (zeros à esquerda) para evitar falhas em SELECT/BAPI
+* Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+FORM normalize_keys CHANGING cs_row TYPE ty_transf.                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+  IF cs_row-mat_orig IS NOT INITIAL.                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING input  = cs_row-mat_orig
+      IMPORTING output = cs_row-mat_orig.
+  ENDIF.
+
+  IF cs_row-mat_dest IS NOT INITIAL.                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING input  = cs_row-mat_dest
+      IMPORTING output = cs_row-mat_dest.
+  ENDIF.
+
+  IF cs_row-vbeln IS NOT INITIAL.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING input  = cs_row-vbeln
+      IMPORTING output = cs_row-vbeln.
+  ENDIF.
+
+  IF cs_row-posnr IS NOT INITIAL.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING input  = cs_row-posnr
+      IMPORTING output = cs_row-posnr.
+  ENDIF.
+
+  IF cs_row-charg IS NOT INITIAL.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING input  = cs_row-charg
+      IMPORTING output = cs_row-charg.
+  ENDIF.
+
+ENDFORM.                                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025

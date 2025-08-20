@@ -77,6 +77,20 @@ MODULE user_command_9000 INPUT.                                        " Calebe 
   DATA lv_lines TYPE i.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   CASE sy-ucomm.                                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    WHEN 'CSVU'.  " Upload CSV   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      IF rb_ma2ma = abap_true.
+        PERFORM upload_csv_transf.                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ENDIF.
+
+    WHEN 'CSVV'.  " Validar buffer " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      IF rb_ma2ma = abap_true.
+        PERFORM validate_buffer_transf.                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ENDIF.
+
+    WHEN 'CSVT'.  " Baixar template " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      IF rb_ma2ma = abap_true.
+        PERFORM download_csv_template.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      ENDIF.
     WHEN 'EXEC' OR 'ONLI'.  "use o FCODE real do seu botão Executar    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
       IF rb_ma2ma = abap_true.                                         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 

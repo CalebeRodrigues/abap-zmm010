@@ -722,80 +722,89 @@ FORM load_mass_data .                                                     " Cale
 ENDFORM.                                                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
 
-FORM post_mass .                                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+* Postagem em massa M2M (normaliza chaves antes de validar/postar)
+* Calebe Rodrigues - TI SR Embalagens (19/08/2025
+*-----------------------------------------------------------------------
+FORM post_mass .
   DATA: ls_head  TYPE bapi2017_gm_head_01,                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         ls_code  TYPE bapi2017_gm_code,                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         lt_item  TYPE TABLE OF bapi2017_gm_item_create,                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         ls_item  TYPE bapi2017_gm_item_create,                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         lt_ret   TYPE TABLE OF bapiret2,                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
         ls_mdoc  TYPE bapi2017_gm_head_ret,                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-        lv_msg   TYPE ty_msg120.         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        lv_msg   TYPE ty_msg120.                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   CLEAR: ls_head, ls_code.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   ls_head-pstng_date = sy-datum.                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   ls_head-doc_date   = sy-datum.                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   CONCATENATE 'ZM2M em massa' sy-uname INTO ls_head-header_txt            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-              SEPARATED BY space.                                         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+              SEPARATED BY space.
   ls_code-gm_code    = gc_gmcode_transfer.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   gv_commit_errors = 0.                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
+  DATA lv_idx TYPE sy-tabix.                                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
   LOOP AT gt_transf INTO gs_transf.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    lv_idx = sy-tabix.                                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
+    " >>> Normalizar chaves no buffer e persistir no grid <<<            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    PERFORM normalize_keys CHANGING gs_transf.                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    MODIFY gt_transf FROM gs_transf INDEX lv_idx.                         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
     DATA(lv_ok) = abap_true.                                              " Calebe Rodrigues - TI SR Embalagens (19/08/2025
     PERFORM validate_line USING gs_transf CHANGING lv_ok.                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    IF lv_ok = abap_false.                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-      CONTINUE.                                                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    ENDIF.                                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    IF lv_ok = abap_false.
+      CONTINUE.
+    ENDIF.
 
     CLEAR: lt_item, ls_item, lt_ret, ls_mdoc.                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
     PERFORM build_item USING gs_transf CHANGING ls_item.                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
     ls_item-move_type = gc_movtype_309.                                   " segurança             Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    APPEND ls_item TO lt_item.                                            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    APPEND ls_item TO lt_item.
 
     CALL FUNCTION 'BAPI_GOODSMVT_CREATE'                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
       EXPORTING
-        goodsmvt_header  = ls_head                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-        goodsmvt_code    = ls_code                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        goodsmvt_header  = ls_head
+        goodsmvt_code    = ls_code
       IMPORTING
-        goodsmvt_headret = ls_mdoc                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        goodsmvt_headret = ls_mdoc
       TABLES
-        goodsmvt_item    = lt_item                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-        return           = lt_ret.                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        goodsmvt_item    = lt_item
+        return           = lt_ret.
 
     READ TABLE lt_ret WITH KEY type = 'E' TRANSPORTING NO FIELDS.         " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    IF sy-subrc = 0.                                                      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-      APPEND LINES OF lt_ret TO gt_ret.                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-      ADD 1 TO gv_commit_errors.                                          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-      CONTINUE.                                                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    ENDIF.                                                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    IF sy-subrc = 0.
+      APPEND LINES OF lt_ret TO gt_ret.
+      ADD 1 TO gv_commit_errors.
+      CONTINUE.
+    ENDIF.
 
-    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-      EXPORTING
-        wait = abap_true.                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+      EXPORTING wait = abap_true.
 
-    IF ls_mdoc-mat_doc IS NOT INITIAL.                                    " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-     " Conversão de quantidade para texto                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    DATA: lv_menge_txt TYPE c LENGTH 40.                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        IF ls_mdoc-mat_doc IS NOT INITIAL.
 
-    WRITE gs_transf-menge TO lv_menge_txt.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    CONDENSE lv_menge_txt NO-GAPS.                                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      DATA lv_menge_txt TYPE c LENGTH 40.                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      WRITE gs_transf-menge TO lv_menge_txt.               " Converte quantidade p/ texto
+      CONDENSE lv_menge_txt NO-GAPS.                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
-    CONCATENATE 'OK:' gs_transf-mat_orig '->' gs_transf-mat_dest          " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-                lv_menge_txt gs_transf-meins '- Doc.'                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-                ls_mdoc-mat_doc '/' ls_mdoc-doc_year                      " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-           INTO lv_msg SEPARATED BY space.                                " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      CONCATENATE 'OK:' gs_transf-mat_orig '->' gs_transf-mat_dest
+                  lv_menge_txt gs_transf-meins '- Doc.'
+                  ls_mdoc-mat_doc '/' ls_mdoc-doc_year
+             INTO lv_msg SEPARATED BY space.               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
-    PERFORM add_text_msg USING gc_message_type-s lv_msg.                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    ENDIF.                                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+      PERFORM add_text_msg USING gc_message_type-s lv_msg. " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    ENDIF.
 
-  ENDLOOP.                                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+  ENDLOOP.
 
   LOOP AT gt_ret INTO gs_ret.                                             " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-    MESSAGE gs_ret-message TYPE gs_ret-type                               " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-            DISPLAY LIKE gs_ret-type.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-  ENDLOOP.                                                                 " Calebe Rodrigues - TI SR Embalagens (19/08/2025
-ENDFORM.                                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    MESSAGE gs_ret-message TYPE gs_ret-type DISPLAY LIKE gs_ret-type.
+  ENDLOOP.
+
+ENDFORM.                                                                   " Calebe Rodrigues - TI SR Embalagens (19/08/2025                                                                  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
 *-----------------------------------------------------------------------
 * Fim - Carga e Postagem M2M
@@ -816,7 +825,7 @@ FORM upload_csv_transf .
         lv_line    TYPE string,
         lv_up      TYPE string,
         lv_delim   TYPE c LENGTH 1,
-        lv_msg     TYPE ty_msg120.            " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+        lv_msg     TYPE ty_msg120.                                       " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   CALL METHOD cl_gui_frontend_services=>file_open_dialog
     EXPORTING default_extension = 'CSV'
@@ -886,7 +895,7 @@ FORM upload_csv_transf .
     lv6_num = lv6.
     IF lv_delim = ';'.                         " CSV BR comum
       REPLACE ALL OCCURRENCES OF '.' IN lv6_num WITH ''.
-      REPLACE ALL OCCURRENCES OF ',' IN lv6_num WITH '.'.  " <- sem ponto e vírgula
+      REPLACE ALL OCCURRENCES OF ',' IN lv6_num WITH '.'.  " Calebe Rodrigues - TI SR Embalagens (19/08/2025
     ELSE.
       REPLACE ALL OCCURRENCES OF ',' IN lv6_num WITH ''.
     ENDIF.
@@ -897,6 +906,9 @@ FORM upload_csv_transf .
     gs_transf-sobkz = lv8.
     gs_transf-vbeln = lv9.
     gs_transf-posnr = lv10.
+
+    " >>> Normalizar chaves antes de validar <<<                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    PERFORM normalize_keys CHANGING gs_transf.                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
     " Validação silenciosa p/ status no grid
     DATA: lv_ok TYPE abap_bool,
@@ -934,8 +946,12 @@ FORM validate_buffer_transf .
         lv_msg TYPE ty_msg120.                                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
 
   LOOP AT gt_transf INTO gs_transf.
+    " >>> Normalizar chaves antes de validar <<<                        " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+    PERFORM normalize_keys CHANGING gs_transf.                           " Calebe Rodrigues - TI SR Embalagens (19/08/2025
+
     CLEAR lv_msg.
     PERFORM validate_line_silent USING gs_transf CHANGING lv_ok lv_msg.
+
     IF lv_ok = abap_true.
       gs_transf-status_icon = icon_led_green.
       gs_transf-status_type = 'S'.
@@ -946,7 +962,8 @@ FORM validate_buffer_transf .
       IF lv_msg IS INITIAL. lv_msg = 'Erro na validação.'. ENDIF.
     ENDIF.
     gs_transf-status_msg = lv_msg.
-    MODIFY gt_transf FROM gs_transf.
+
+    MODIFY gt_transf FROM gs_transf.                                     " Calebe Rodrigues - TI SR Embalagens (19/08/2025
   ENDLOOP.
 
   IF g_grid IS BOUND.
@@ -968,7 +985,7 @@ FORM download_csv_template .
         lv_filename TYPE string,                         " nome do arquivo
         lv_path     TYPE string.                         " pasta escolhida
 
-  lv_full = 'template_m2m.csv'.                          " sugestão de nome
+  lv_full = 'template_zmm010.csv'.                          " sugestão de nome
 
   " Cabeçalho do template
   CLEAR ls_soli.
